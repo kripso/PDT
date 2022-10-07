@@ -102,9 +102,10 @@ def tweets_parse(lines):
     PostgresClient.copy_authors(CONNECTION, block_left_over_authors)
     PostgresClient.copy_tweets(CONNECTION, tweet_entries)
 
-# 
+
+#
 # Traverse funcitons
-# 
+#
 def authors_traverse(file_path: str, file_name: str):
     with CONNECTION.cursor() as cursor:
         PostgresSchema.create_authors_table(cursor)
@@ -135,6 +136,8 @@ def tweets_traverse(file_path: str, file_name: str):
                 lines = []
         tweets_parse(lines)
 
+    UNIQUE_AUTHORS.clear()
+
 
 def hashtags_traverse(file_path: str, file_name: str):
     with CONNECTION.cursor() as cursor:
@@ -151,6 +154,7 @@ def hashtags_traverse(file_path: str, file_name: str):
         hashtags_parse(lines)
 
     UNIQUE_HASHTAGS.clear()
+
 
 #
 # Context Items
@@ -187,36 +191,26 @@ def context_items_import(file_path: str, file_name: str):
     with CONNECTION.cursor() as cursor:
         PostgresSchema.create_context_domains_table(cursor)
         PostgresSchema.create_context_entities_table(cursor)
-        PostgresSchema.create_context_annotations_table(cursor)
 
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
         context_entities = []
         context_domains = []
-        context_annotations = []
 
         for index, line in enumerate(file):
             _json_file = json.loads(line)
 
             context_entities.extend(DataExtractor.get_context_entities(_json_file))
             context_domains.extend(DataExtractor.get_context_domains(_json_file))
-            context_annotations.extend(
-                DataExtractor.get_context_annotations_row(_json_file)
-            )
 
             if index % 100_000 == 0:
                 context_entities_parse(context_entities)
                 context_domains_parse(context_domains)
-                PostgresClient.copy_context_annotations(CONNECTION, context_annotations)
 
                 context_entities = []
                 context_domains = []
-                context_annotations = []
 
     context_entities_parse(context_entities)
     context_domains_parse(context_domains)
-    PostgresClient.copy_context_annotations(CONNECTION, context_annotations)
-    UNIQUE_DOMAINS.clear()
-    UNIQUE_ENTITIES.clear()
 
 
 #
@@ -252,6 +246,37 @@ def links_parse(links):
 
 
 #
+# Context Annotations
+#
+@timer_function("context_annotations_parse_block")
+def context_annotations_parse(lines):
+    ctx_annotations = []
+
+    for line in lines:
+        _json_file = json.loads(line)
+        ctx_annotations.extend(DataExtractor.get_context_annotations_row(_json_file))
+
+    PostgresClient.copy_context_annotations(CONNECTION, ctx_annotations)
+
+
+def context_annotations_traverse(file_path: str, file_name: str):
+    with CONNECTION.cursor() as cursor:
+        PostgresSchema.create_context_annotations_table(cursor)
+
+    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
+        lines = []
+        for index, line in enumerate(file):
+            lines.append(line)
+            if index % 100_000 == 0:
+                context_annotations_parse(lines)
+                lines = []
+        context_annotations_parse(lines)
+
+    UNIQUE_DOMAINS.clear()
+    UNIQUE_ENTITIES.clear()
+
+
+#
 # paralel_import
 #
 def N_rows_import(lines):
@@ -270,27 +295,43 @@ def N_rows_import(lines):
     tweet_references_parse(tweet_references)
 
 
-def paralel_import(file_path: str, file_name: str):
+def paralel_import(file_path: str):
+
+    procs = list()
+    p = mp.Process(
+        target=context_items_import,
+        kwargs={"file_path": file_path, "file_name": "conversations.jsonl"},
+    )
+    p.start()
+    procs.append(p)
+
+    authors_traverse(file_path, "authors.jsonl")
+
+    p = mp.Process(
+        target=context_annotations_traverse,
+        kwargs={"file_path": file_path, "file_name": "conversations.jsonl"},
+    )
+    p.start()
+    procs.append(p)
+
+    tweets_traverse(
+        file_path,
+        "conversations.jsonl",
+    )
+
+    p = mp.Process(
+        target=hashtags_traverse,
+        kwargs={"file_path": file_path, "file_name": "conversations.jsonl"},
+    )
+    p.start()
+    procs.append(p)
+
     with CONNECTION.cursor() as cursor:
         PostgresSchema.create_annotations_table(cursor)
         PostgresSchema.create_links_table(cursor)
         PostgresSchema.create_tweet_references_table(cursor)
 
-    procs = list()
-
-    p = mp.Process(
-        target=context_items_import,
-        kwargs={"file_path": file_path, "file_name": file_name},
-    )
-    p.start()
-    procs.append(p)
-    p = mp.Process(
-        target=hashtags_traverse,
-        kwargs={"file_path": file_path, "file_name": file_name},
-    )
-    p.start()
-    procs.append(p)
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
+    with open(os.path.join(file_path, "conversations.jsonl"), encoding="utf-8") as file:
         lines = []
         for index, line in enumerate(file):
             lines.append(line)
@@ -303,19 +344,12 @@ def paralel_import(file_path: str, file_name: str):
     p = mp.Process(target=N_rows_import, kwargs={"lines": lines})
     p.start()
     procs.append(p)
+
     for p in procs:
         p.join()
 
 
 if __name__ == "__main__":
-    authors_traverse("C:/Users/Krips/Documents/Programming/PDT/", "authors.jsonl")
-
-    tweets_traverse(
-        "C:/Users/Krips/Documents/Programming/PDT/",
-        "conversations.jsonl",
-    )
-
-    UNIQUE_AUTHORS.clear()
 
     paralel_import(
         "C:/Users/Krips/Documents/Programming/PDT/",
