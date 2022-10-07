@@ -23,9 +23,11 @@ def timer_function(_type):
             result = function(*args, **kwargs)
             import_end_time = time.time()
             time_delta = divmod(import_end_time - import_start_time, 60)
-            print("------------------------------------")
-            print(f"time now: {datetime.now().isoformat()}")
-            print(f"{_type} time: {int(time_delta[0])}:{int(time_delta[1])}")
+            print("------------------------------------", flush=True)
+            print(f"time now: {datetime.now().isoformat()}", flush=True)
+            print(
+                f"{_type} time: {int(time_delta[0])}:{int(time_delta[1])}", flush=True
+            )
 
             return result
 

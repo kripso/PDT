@@ -30,17 +30,18 @@ class DataExtractor:
                 "quote_count": public_metrics.get("quote_count", 0),
                 "created_at": _input.get("created_at", r"\N"),
             },
-            "tweet_reference": DataExtractor.generate_tweet_reference_row(_input),
+            "tweet_references": DataExtractor.generate_tweet_reference_row(_input),
         }
 
     @staticmethod
     def generate_tweet_reference_row(_input: dict = {}):
         referenced_tweets = _input.get("referenced_tweets", {})
-        return {
-            "tweet_id": _input.get("id", r"\N"),
-            "parent_id": referenced_tweets.get("id", r"\N"),
-            "type": referenced_tweets.get("type", r"\N"),
-        }
+        for referenced_tweet in referenced_tweets:
+            yield {
+                "tweet_id": _input.get("id", r"\N"),
+                "parent_id": referenced_tweet.get("id", r"\N"),
+                "type": referenced_tweet.get("type", r"\N"),
+            }
 
     @staticmethod
     def get_hashtags(_entity: dict = {}):
@@ -60,27 +61,29 @@ class DataExtractor:
         return _input.get("entities", {})
 
     @staticmethod
-    def get_links_row(tweet_id: str, _entity: dict = {}):
-        urls = _entity.get("urls", {})
-        url = urls.get("expanded_url", r"\N")
-        if len(url) > 2048:
-            return
-        return {
-            "tweet_id": tweet_id,
-            "url": url,
-            "title": urls.get("title", r"\N"),
-            "description": urls.get("description", r"\N"),
-        }
+    def get_links_row(_input: dict = {}):
+        urls = _input.get("entities", {}).get("urls", {})
+        for url_entity in urls:
+            _url = url_entity.get("expanded_url", r"\N")
+            if len(_url) > 2048:
+                yield
+            yield {
+                "tweet_id": _input.get("id", r"\N"),
+                "url": _url,
+                "title": url_entity.get("title", r"\N"),
+                "description": url_entity.get("description", r"\N"),
+            }
 
     @staticmethod
-    def get_annotations_row(tweet_id: str, _entity: dict = {}):
-        annotations = _entity.get("annotations", {})
-        return {
-            "tweet_id": tweet_id,
-            "value": annotations.get("normalized_text", r"\N"),
-            "type": annotations.get("type", r"\N"),
-            "probability": annotations.get("probability", r"\N"),
-        }
+    def get_annotations_row(_input: dict = {}):
+        annotations = _input.get("entities", {}).get("annotations", {})
+        for annotation in annotations:
+            yield {
+                "tweet_id": _input.get("id", r"\N"),
+                "value": annotation.get("normalized_text", r"\N"),
+                "type": annotation.get("type", r"\N"),
+                "probability": annotation.get("probability", r"\N"),
+            }
 
     @staticmethod
     def get_context_annotations_row(tweet_id: str, _input: dict = {}):

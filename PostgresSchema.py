@@ -53,7 +53,7 @@ class PostgresSchema:
                 id                      BIGINT PRIMARY KEY,
                 context_domain_id       BIGINT REFERENCES context_domains(id) NOT NULL,
                 context_entitie_id      BIGINT REFERENCES context_entities(id) NOT NULL,
-                tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
+                tweet_id                BIGINT REFERENCES tweets(id) NOT NULL
             );
         """
         )
@@ -64,11 +64,11 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS annotations  CASCADE;
             CREATE UNLOGGED TABLE annotations (
-                id                      BIGINT PRIMARY KEY,
+                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 value                   TEXT NOT NULL,
                 type                    TEXT NOT NULL,
-                probability             NUMERIC(4,3) NOT NULL,
+                probability             NUMERIC(4,3) NOT NULL
             );
         """
         )
@@ -79,11 +79,11 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS links CASCADE;
             CREATE UNLOGGED TABLE links (
-                id                      BIGINT PRIMARY KEY GENERATED AS IDENTITY,
+                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 url                     VARCHAR ( 2048 ) NOT NULL,
                 title                   TEXT,
-                description             TEXT,
+                description             TEXT
             );
         """
         )
@@ -94,10 +94,10 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS tweet_references CASCADE;
             CREATE UNLOGGED TABLE tweet_references (
-                id                      BIGINT PRIMARY KEY GENERATED AS IDENTITY,
+                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
-                parent_id               BIGINT NOT NULL,
-                type                    VARCHAR ( 20 ) NOT NULL,
+                parent_id               BIGINT REFERENCES tweets(id) NOT NULL,
+                type                    VARCHAR ( 20 ) NOT NULL
             );
         """
         )
@@ -108,8 +108,8 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS hashtags CASCADE;
             CREATE UNLOGGED TABLE hashtags (
-                id                      BIGINT PRIMARY KEY GENERATED AS IDENTITY,
-                tag                     TEXT UNIQUE,
+                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                tag                     TEXT UNIQUE
             );
         """
         )
@@ -120,10 +120,9 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS tweet_hashtags CASCADE;
             CREATE UNLOGGED TABLE tweet_hashtags (
-                id                      BIGINT PRIMARY KEY GENERATED AS IDENTITY,
+                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
-                hashtag_id              BIGINT REFERENCES hashtags(id) NOT NULL,
-
+                hashtag_id              BIGINT REFERENCES hashtags(id) NOT NULL
             );
         """
         )
@@ -144,7 +143,7 @@ class PostgresSchema:
                 reply_count             INTEGER,
                 like_count              INTEGER,
                 quote_count             INTEGER,
-                created_at              TIMESTAMPTZ,
+                created_at              TIMESTAMPTZ
             );
         """
         )
