@@ -28,7 +28,11 @@ Used SQL
 	1. this is not the case for hashtags where I created ids manually and assigned them to hashtags and tweet hashtags
 4.  Unlogged tables were used for better performance even though they are considered less safe for data retention
 
-Runntime:
+Runntime: 
+	58 minues and 34 seconds
+	with smaller batches and some optimizations done over tha last runntime will decrease but that doesnt matter now.
 
 Database:
 there is an arror in my code because tweet references table is after import empty, may be because of multiprocesing and that UNIQUE_TWEETS is modified on main proces but im spawning the separate proces to pupulate references after main is done so this shoulnt be the case. Will investigate over the weekend. but im not ale to now
+
+[image](./database.png)
