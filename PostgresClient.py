@@ -217,20 +217,6 @@ class PostgresClient:
                 columns=["tweet_id", "url", "title", "description"],
             )
 
-    # @staticmethod
-    # def copy_hashtags(connection, hashtags: Iterator) -> None:
-    #     with connection.cursor() as cursor:
-    #         csv_file_like_object = io.StringIO()
-    #         for hashtag in hashtags:
-    #             csv_file_like_object.write(f"{clean_csv_value(hashtag)}\n")
-    #         csv_file_like_object.seek(0)
-    #         cursor.copy_from(
-    #             csv_file_like_object,
-    #             "hashtags",
-    #             sep="\t",
-    #             columns=["tag"],
-    #         )
-
     def execute_hashtags(
         connection,
         hashtags: Iterator,
