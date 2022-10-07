@@ -36,3 +36,4 @@ Database:
 there is an arror in my code because tweet references table is after import empty, may be because of multiprocesing and that UNIQUE_TWEETS is modified on main proces but im spawning the separate proces to pupulate references after main is done so this shoulnt be the case. Will investigate over the weekend. but im not ale to now
 
 [image](./database.png)
+[image](./database_with_size.png)
