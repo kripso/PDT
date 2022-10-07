@@ -161,6 +161,10 @@ def hashtags_traverse(file_path: str, file_name: str):
 #
 @timer_function("context_entities_parse_block")
 def context_entities_parse(context_entities):
+    PostgresClient.copy_context_entities(CONNECTION, context_entities)
+
+
+def context_entities_filter(context_entities):
     block_entries = []
 
     for context_entity in context_entities:
@@ -170,11 +174,15 @@ def context_entities_parse(context_entities):
             block_entries.append(context_entity)
             UNIQUE_ENTITIES[context_entity_id] = None
 
-    PostgresClient.copy_context_entities(CONNECTION, block_entries)
+    return block_entries
 
 
 @timer_function("context_domains_parse_block")
 def context_domains_parse(context_domains):
+    PostgresClient.copy_context_domains(CONNECTION, context_domains)
+
+
+def context_domains_filter(context_domains):
     block_entries = []
 
     for context_domain in context_domains:
@@ -184,7 +192,7 @@ def context_domains_parse(context_domains):
             block_entries.append(context_domain)
             UNIQUE_DOMAINS[context_domain_id] = None
 
-    PostgresClient.copy_context_domains(CONNECTION, block_entries)
+    return block_entries
 
 
 def context_items_import(file_path: str, file_name: str):
@@ -196,17 +204,20 @@ def context_items_import(file_path: str, file_name: str):
         context_entities = []
         context_domains = []
 
-        for index, line in enumerate(file):
+        for line in file:
             _json_file = json.loads(line)
 
-            context_entities.extend(DataExtractor.get_context_entities(_json_file))
-            context_domains.extend(DataExtractor.get_context_domains(_json_file))
-
-            if index % 100_000 == 0:
+            context_entities.extend(
+                context_entities_filter(DataExtractor.get_context_entities(_json_file))
+            )
+            context_domains.extend(
+                context_domains_filter(DataExtractor.get_context_domains(_json_file))
+            )
+            if len(context_entities) > 10_000:
                 context_entities_parse(context_entities)
-                context_domains_parse(context_domains)
-
                 context_entities = []
+            if len(context_domains) > 10_000:
+                context_domains_parse(context_domains)
                 context_domains = []
 
     context_entities_parse(context_entities)
@@ -296,7 +307,6 @@ def N_rows_import(lines):
 
 
 def paralel_import(file_path: str):
-
     procs = list()
     p = mp.Process(
         target=context_items_import,
@@ -307,18 +317,17 @@ def paralel_import(file_path: str):
 
     authors_traverse(file_path, "authors.jsonl")
 
+    tweets_traverse(
+        file_path,
+        "conversations.jsonl",
+    )
+
     p = mp.Process(
         target=context_annotations_traverse,
         kwargs={"file_path": file_path, "file_name": "conversations.jsonl"},
     )
     p.start()
     procs.append(p)
-
-    tweets_traverse(
-        file_path,
-        "conversations.jsonl",
-    )
-
     p = mp.Process(
         target=hashtags_traverse,
         kwargs={"file_path": file_path, "file_name": "conversations.jsonl"},
@@ -351,7 +360,4 @@ def paralel_import(file_path: str):
 
 if __name__ == "__main__":
 
-    paralel_import(
-        "C:/Users/Krips/Documents/Programming/PDT/",
-        "conversations.jsonl",
-    )
+    paralel_import("C:/Users/Krips/Documents/Programming/PDT/")
