@@ -46,16 +46,7 @@ class DataExtractor:
     @staticmethod
     def get_hashtags(_input: dict = {}):
         for hashtag in _input.get("entities", {}).get("hashtags", {}):
-            yield hashtag.get("tag", r"\N")
-
-    @staticmethod
-    def generate_tweet_hashtags_row(_input: dict = {}):
-        referenced_tweets = _input.get("referenced_tweets", {})
-        return {
-            "tweet_id": _input.get("id", r"\N"),
-            "parent_id": referenced_tweets.get("id", r"\N"),
-            "type": referenced_tweets.get("type", r"\N"),
-        }
+            yield {"tag": hashtag.get("tag", r"\N")}
 
     @staticmethod
     def get_entities(_input: dict = {}):

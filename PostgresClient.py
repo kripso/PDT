@@ -240,8 +240,41 @@ class PostgresClient:
             psycopg2.extras.execute_values(
                 cursor,
                 """
-                INSERT INTO hashtags(tag) VALUES %s ON CONFLICT DO NOTHING;
+                INSERT INTO hashtags(id, tag) VALUES %s ON CONFLICT DO NOTHING;
             """,
-                ((clean_csv_value(hashtag),) for hashtag in hashtags),
+                (
+                    (
+                        hashtag["id"],
+                        clean_csv_value(hashtag["tag"]),
+                    )
+                    for hashtag in hashtags
+                ),
                 page_size=page_size,
+            )
+
+    @staticmethod
+    def copy_tweet_hashtags(
+        connection, tweet_hashtags: Iterator[Dict[str, Any]]
+    ) -> None:
+        with connection.cursor() as cursor:
+            csv_file_like_object = io.StringIO()
+            for tweet_hashtag in tweet_hashtags:
+                csv_file_like_object.write(
+                    "\t".join(
+                        map(
+                            str,
+                            (
+                                tweet_hashtag["tweet_id"],
+                                tweet_hashtag["hashtag_id"],
+                            ),
+                        )
+                    )
+                    + "\n"
+                )
+            csv_file_like_object.seek(0)
+            cursor.copy_from(
+                csv_file_like_object,
+                "tweet_hashtags",
+                sep="\t",
+                columns=["tweet_id", "hashtag_id"],
             )

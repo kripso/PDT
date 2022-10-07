@@ -51,9 +51,9 @@ class PostgresSchema:
             DROP TABLE IF EXISTS context_annotations CASCADE;
             CREATE UNLOGGED TABLE context_annotations (
                 id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-                tweet_id                BIGINT REFERENCES tweets(id) NOT NULL
+                tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 context_domain_id       BIGINT REFERENCES context_domains(id) NOT NULL,
-                context_entity_id       BIGINT REFERENCES context_entities(id) NOT NULL,
+                context_entity_id       BIGINT REFERENCES context_entities(id) NOT NULL
             );
         """
         )
@@ -108,7 +108,7 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS hashtags CASCADE;
             CREATE UNLOGGED TABLE hashtags (
-                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+                id                      BIGINT PRIMARY KEY,
                 tag                     TEXT UNIQUE
             );
         """
