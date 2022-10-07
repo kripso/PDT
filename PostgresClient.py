@@ -2,6 +2,7 @@ from distutils.command.clean import clean
 from typing import Iterator, Dict, Any
 import io
 from Tools import clean_csv_value
+import psycopg2.extras
 
 
 class PostgresClient:
@@ -59,6 +60,80 @@ class PostgresClient:
                 )
             csv_file_like_object.seek(0)
             cursor.copy_from(csv_file_like_object, "tweets", sep="\t")
+
+    @staticmethod
+    def copy_context_entities(
+        connection, context_entities: Iterator[Dict[str, Any]]
+    ) -> None:
+        with connection.cursor() as cursor:
+            csv_file_like_object = io.StringIO()
+            for context_entity in context_entities:
+                csv_file_like_object.write(
+                    "\t".join(
+                        map(
+                            clean_csv_value,
+                            (
+                                context_entity["id"],
+                                context_entity["name"],
+                                context_entity["description"],
+                            ),
+                        )
+                    )
+                    + "\n"
+                )
+            csv_file_like_object.seek(0)
+            cursor.copy_from(csv_file_like_object, "context_entities", sep="\t")
+
+    @staticmethod
+    def copy_context_domains(
+        connection, context_domains: Iterator[Dict[str, Any]]
+    ) -> None:
+        with connection.cursor() as cursor:
+            csv_file_like_object = io.StringIO()
+            for context_domain in context_domains:
+                csv_file_like_object.write(
+                    "\t".join(
+                        map(
+                            clean_csv_value,
+                            (
+                                context_domain["id"],
+                                context_domain["name"],
+                                context_domain["description"],
+                            ),
+                        )
+                    )
+                    + "\n"
+                )
+            csv_file_like_object.seek(0)
+            cursor.copy_from(csv_file_like_object, "context_domains", sep="\t")
+
+    @staticmethod
+    def copy_context_annotations(
+        connection, context_annotations: Iterator[Dict[str, Any]]
+    ) -> None:
+        with connection.cursor() as cursor:
+            csv_file_like_object = io.StringIO()
+            for context_annotation in context_annotations:
+                csv_file_like_object.write(
+                    "\t".join(
+                        map(
+                            str,
+                            (
+                                context_annotation["tweet_id"],
+                                context_annotation["context_domain_id"],
+                                context_annotation["context_entity_id"],
+                            ),
+                        )
+                    )
+                    + "\n"
+                )
+            csv_file_like_object.seek(0)
+            cursor.copy_from(
+                csv_file_like_object,
+                "context_annotations",
+                sep="\t",
+                columns=["tweet_id", "context_domain_id", "context_entity_id"],
+            )
 
     @staticmethod
     def copy_tweet_references(
@@ -140,4 +215,33 @@ class PostgresClient:
                 "links",
                 sep="\t",
                 columns=["tweet_id", "url", "title", "description"],
+            )
+
+    # @staticmethod
+    # def copy_hashtags(connection, hashtags: Iterator) -> None:
+    #     with connection.cursor() as cursor:
+    #         csv_file_like_object = io.StringIO()
+    #         for hashtag in hashtags:
+    #             csv_file_like_object.write(f"{clean_csv_value(hashtag)}\n")
+    #         csv_file_like_object.seek(0)
+    #         cursor.copy_from(
+    #             csv_file_like_object,
+    #             "hashtags",
+    #             sep="\t",
+    #             columns=["tag"],
+    #         )
+
+    def execute_hashtags(
+        connection,
+        hashtags: Iterator,
+        page_size: int = 100,
+    ) -> None:
+        with connection.cursor() as cursor:
+            psycopg2.extras.execute_values(
+                cursor,
+                """
+                INSERT INTO hashtags(tag) VALUES %s ON CONFLICT DO NOTHING;
+            """,
+                ((clean_csv_value(hashtag),) for hashtag in hashtags),
+                page_size=page_size,
             )

@@ -1,3 +1,6 @@
+from Tools import clean_csv_value
+
+
 class DataExtractor:
     @staticmethod
     def generate_author_row(_input: dict = {}):
@@ -17,24 +20,21 @@ class DataExtractor:
     def generate_tweet_row(_input: dict = {}):
         public_metrics = _input.get("public_metrics", {})
         return {
-            "tweet": {
-                "id": _input.get("id", r"\N"),
-                "author_id": _input.get("author_id", r"\N"),
-                "content": _input.get("text", r"\N"),
-                "possibly_sensitive": _input.get("possibly_sensitive", r"\N"),
-                "language": _input.get("lang", r"\N"),
-                "source": _input.get("source", r"\N"),
-                "retweet_count": public_metrics.get("retweet_count", 0),
-                "reply_count": public_metrics.get("reply_count", 0),
-                "like_count": public_metrics.get("like_count", 0),
-                "quote_count": public_metrics.get("quote_count", 0),
-                "created_at": _input.get("created_at", r"\N"),
-            },
-            "tweet_references": DataExtractor.generate_tweet_reference_row(_input),
+            "id": _input.get("id", r"\N"),
+            "author_id": _input.get("author_id", r"\N"),
+            "content": _input.get("text", r"\N"),
+            "possibly_sensitive": _input.get("possibly_sensitive", r"\N"),
+            "language": _input.get("lang", r"\N"),
+            "source": _input.get("source", r"\N"),
+            "retweet_count": public_metrics.get("retweet_count", 0),
+            "reply_count": public_metrics.get("reply_count", 0),
+            "like_count": public_metrics.get("like_count", 0),
+            "quote_count": public_metrics.get("quote_count", 0),
+            "created_at": _input.get("created_at", r"\N"),
         }
 
     @staticmethod
-    def generate_tweet_reference_row(_input: dict = {}):
+    def generate_tweet_references(_input: dict = {}):
         referenced_tweets = _input.get("referenced_tweets", {})
         for referenced_tweet in referenced_tweets:
             yield {
@@ -44,8 +44,9 @@ class DataExtractor:
             }
 
     @staticmethod
-    def get_hashtags(_entity: dict = {}):
-        return _entity.get("hashtags", {}).get("tag", r"\N")
+    def get_hashtags(_input: dict = {}):
+        for hashtag in _input.get("entities", {}).get("hashtags", {}):
+            yield hashtag.get("tag", r"\N")
 
     @staticmethod
     def generate_tweet_hashtags_row(_input: dict = {}):
@@ -65,14 +66,15 @@ class DataExtractor:
         urls = _input.get("entities", {}).get("urls", {})
         for url_entity in urls:
             _url = url_entity.get("expanded_url", r"\N")
-            if len(_url) > 2048:
+            if len(clean_csv_value(_url)) > 2048:
                 yield
-            yield {
-                "tweet_id": _input.get("id", r"\N"),
-                "url": _url,
-                "title": url_entity.get("title", r"\N"),
-                "description": url_entity.get("description", r"\N"),
-            }
+            else:
+                yield {
+                    "tweet_id": _input.get("id", r"\N"),
+                    "url": _url,
+                    "title": url_entity.get("title", r"\N"),
+                    "description": url_entity.get("description", r"\N"),
+                }
 
     @staticmethod
     def get_annotations_row(_input: dict = {}):
@@ -86,36 +88,35 @@ class DataExtractor:
             }
 
     @staticmethod
-    def get_context_annotations_row(tweet_id: str, _input: dict = {}):
-        context_annotations = _input.get("context_annotations", {})
-        return {
-            "context_annotations": {
+    def get_context_annotations_row(_input: dict = {}):
+        tweet_id = _input.get("id", r"\N")
+        context_items = _input.get("context_annotations", {})
+
+        for context_item in context_items:
+            yield {
                 "tweet_id": tweet_id,
-                "context_domain_id": context_annotations.get("domain", r"\N"),
-                "context_entity_id": context_annotations.get("entity", r"\N"),
-            },
-            "context_entities": DataExtractor.get_context_entities_row(
-                context_annotations
-            ),
-            "context_domains": DataExtractor.get_context_domains_row(
-                context_annotations
-            ),
-        }
+                "context_domain_id": context_item.get("domain", {}).get("id", r"\N"),
+                "context_entity_id": context_item.get("entity", {}).get("id", r"\N"),
+            }
 
     @staticmethod
-    def get_context_entities_row(context_annotations: dict = {}):
-        context_entities = context_annotations.get("entities", {})
-        return {
-            "id": context_entities.get("id", r"\N"),
-            "name": context_entities.get("name", r"\N"),
-            "description": context_entities.get("description", r"\N"),
-        }
+    def get_context_entities(_input: dict = {}):
+        context_items = _input.get("context_annotations", {})
+        for context_item in context_items:
+            context_entity = context_item.get("entity", {})
+            yield {
+                "id": context_entity.get("id", r"\N"),
+                "name": context_entity.get("name", r"\N"),
+                "description": context_entity.get("description", r"\N"),
+            }
 
     @staticmethod
-    def get_context_domains_row(context_annotations: dict = {}):
-        context_domains = context_annotations.get("context_domains", {})
-        return {
-            "id": context_domains.get("id", r"\N"),
-            "name": context_domains.get("name", r"\N"),
-            "description": context_domains.get("description", r"\N"),
-        }
+    def get_context_domains(_input: dict = {}):
+        context_items = _input.get("context_annotations", {})
+        for context_item in context_items:
+            context_domain = context_item.get("domain", {})
+            yield {
+                "id": context_domain.get("id", r"\N"),
+                "name": context_domain.get("name", r"\N"),
+                "description": context_domain.get("description", r"\N"),
+            }

@@ -50,10 +50,10 @@ class PostgresSchema:
             """
             DROP TABLE IF EXISTS context_annotations CASCADE;
             CREATE UNLOGGED TABLE context_annotations (
-                id                      BIGINT PRIMARY KEY,
-                context_domain_id       BIGINT REFERENCES context_domains(id) NOT NULL,
-                context_entitie_id      BIGINT REFERENCES context_entities(id) NOT NULL,
+                id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL
+                context_domain_id       BIGINT REFERENCES context_domains(id) NOT NULL,
+                context_entity_id       BIGINT REFERENCES context_entities(id) NOT NULL,
             );
         """
         )
