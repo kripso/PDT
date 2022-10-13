@@ -20,9 +20,9 @@ tag_id = 0
 
 
 #
-# Traverse funcitons
+# Authors
 #
-def authors_traverse(file_path: str, file_name: str):
+def authors_import(file_path: str, file_name: str):
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
         authors = []
 
@@ -42,8 +42,10 @@ def authors_traverse(file_path: str, file_name: str):
 
     PostgresClient.copy_authors(CONNECTION, authors)
 
-
-def tweets_traverse(file_path: str, file_name: str):
+#
+# Tweets
+#
+def tweets_import(file_path: str, file_name: str):
 
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
         tweets = []
@@ -75,8 +77,10 @@ def tweets_traverse(file_path: str, file_name: str):
     PostgresClient.copy_tweets(CONNECTION, tweets)
     UNIQUE_AUTHORS.clear()
 
-
-def hashtags_traverse(file_path: str, file_name: str):
+#
+# Hashtags
+#
+def hashtags_import(file_path: str, file_name: str):
     global tag_id
 
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
@@ -108,6 +112,9 @@ def hashtags_traverse(file_path: str, file_name: str):
     UNIQUE_HASHTAGS.clear()
 
 
+#
+# Context entities filter
+#
 def context_entities_filter(context_entities):
     block_entries = []
 
@@ -121,6 +128,9 @@ def context_entities_filter(context_entities):
     return block_entries
 
 
+#
+# Context domains filter
+#
 def context_domains_filter(context_domains):
     block_entries = []
 
@@ -134,6 +144,9 @@ def context_domains_filter(context_domains):
     return block_entries
 
 
+#
+# Context items
+#
 def context_items_import(file_path: str, file_name: str):
 
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
@@ -165,7 +178,7 @@ def context_items_import(file_path: str, file_name: str):
 #
 # Tweet references
 #
-def tweet_references_traverse(file_path: str, file_name: str, UNIQUE_TWEETS):
+def tweet_references_import(file_path: str, file_name: str, UNIQUE_TWEETS):
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
         block_entries = []
         
@@ -177,13 +190,14 @@ def tweet_references_traverse(file_path: str, file_name: str, UNIQUE_TWEETS):
                 
             if len(block_entries) > 10_000:
                 PostgresClient.copy_tweet_references(CONNECTION, block_entries)
+                block_entries = []
 
     PostgresClient.copy_tweet_references(CONNECTION, block_entries)
 
 #
 # Context Annotations
 #
-def context_annotations_traverse(file_path: str, file_name: str):
+def context_annotations_import(file_path: str, file_name: str):
 
     with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
         context_annotations = []
@@ -199,7 +213,7 @@ def context_annotations_traverse(file_path: str, file_name: str):
 
 
 #
-# paralel_import
+# Parallel import
 #
 def N_rows_import(lines):
     links = []
@@ -209,12 +223,21 @@ def N_rows_import(lines):
         _json_file = json.loads(line)
         links.extend(DataExtractor.get_links_row(_json_file))
         annotations.extend(DataExtractor.get_annotations_row(_json_file))
+        
+        if len(links) > 10_000:
+            PostgresClient.copy_links(filter(lambda x: x is not None, links))
+            links = []
+            
+        if len(annotations) > 10_000:
+            PostgresClient.copy_annotations(CONNECTION, annotations)
+            annotations = []
+            
 
     PostgresClient.copy_links(filter(lambda x: x is not None, links))
-    PostgresClient.copy_annotations(CONNECTION, annotations)(annotations)
+    PostgresClient.copy_annotations(CONNECTION, annotations)
 
 
-def paralel_import(file_path: str):
+def parallel_import(file_path: str):
     _kwargs = {"file_path": file_path, "file_name": "conversations.jsonl"}
 
     procs = list()
@@ -223,21 +246,21 @@ def paralel_import(file_path: str):
     p.start()
     procs.append(p)
 
-    authors_traverse(file_path, "authors.jsonl")
-    tweets_traverse(file_path, "conversations.jsonl")
+    authors_import(file_path, "authors.jsonl")
+    tweets_import(file_path, "conversations.jsonl")
 
-    p = mp.Process(target=context_annotations_traverse,kwargs=_kwargs)
+    p = mp.Process(target=context_annotations_import,kwargs=_kwargs)
     p.start()
     procs.append(p)
 
-    p = mp.Process(target=hashtags_traverse,kwargs=_kwargs)
+    p = mp.Process(target=hashtags_import,kwargs=_kwargs)
     p.start()
     procs.append(p)
 
     __kwargs = _kwargs.copy()
     __kwargs["UNIQUE_TWEETS"] = UNIQUE_TWEETS
 
-    p = mp.Process(target=tweet_references_traverse,kwargs=__kwargs)
+    p = mp.Process(target=tweet_references_import,kwargs=__kwargs)
     p.start()
     procs.append(p)
 
@@ -271,7 +294,6 @@ if __name__ == "__main__":
         PostgresSchema.create_links_table(cursor)
         PostgresSchema.create_tweet_references_table(cursor)
 
-    paralel_import("C:/Users/Krips/Documents/Programming/PDT/")
+    parallel_import("C:/Users/Krips/Documents/Programming/PDT/")
 
     CONNECTION.commit()
-    # 16:09
