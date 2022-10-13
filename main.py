@@ -225,7 +225,7 @@ def N_rows_import(lines):
         annotations.extend(DataExtractor.get_annotations_row(_json_file))
         
         if len(links) > 10_000:
-            PostgresClient.copy_links(filter(lambda x: x is not None, links))
+            PostgresClient.copy_links(CONNECTION, filter(lambda x: x is not None, links))
             links = []
             
         if len(annotations) > 10_000:
@@ -233,7 +233,7 @@ def N_rows_import(lines):
             annotations = []
             
 
-    PostgresClient.copy_links(filter(lambda x: x is not None, links))
+    PostgresClient.copy_links(CONNECTION, filter(lambda x: x is not None, links))
     PostgresClient.copy_annotations(CONNECTION, annotations)
 
 
@@ -295,5 +295,3 @@ if __name__ == "__main__":
         PostgresSchema.create_tweet_references_table(cursor)
 
     parallel_import("C:/Users/Krips/Documents/Programming/PDT/")
-
-    CONNECTION.commit()

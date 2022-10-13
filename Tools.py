@@ -66,7 +66,7 @@ def create_postgres_connection():
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
     )
-    # connection.autocommit = True
+    connection.autocommit = True
     return connection
 
 
