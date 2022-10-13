@@ -34,23 +34,23 @@ def timer_function(_type):
             block_min, block_sec = divmod(block_time_delta, 60)
             import_min, import_sec = divmod(total_time_delta, 60)
 
-            # 2022-09-16T19:35Z;81:22;10:22
+            _time_now = time.strftime("%Y-%m-%dT%H:%MZ")
+            _import_time = f"{int(import_min)}:{int(import_sec)}"
+            _block_time = f"{int(block_min)}:{int(block_sec)}"
+
             print(
                 _type,
                 # time.strftime("%Y-%m-%dT%H:%MZ;")
                 # + f"{int(import_min)}:{int(import_sec)}"
                 # + f";{int(block_min)}:{int(block_sec)}",
+                flush=True,
             )
 
-            _time_now = time.strftime("%Y-%m-%dT%H:%MZ")
-            _import_time = f"{int(import_min)}:{int(import_sec)}"
-            _block_time = f"{int(block_min)}:{int(block_sec)}"
+            # with open("./docs/timer.csv", "a", encoding="UTF8", newline="") as f:
+            #     writer = csv.writer(f, delimiter=";")
 
-            with open("timer.csv", "a", encoding="UTF8", newline="") as f:
-                writer = csv.writer(f, delimiter=";")
-
-                # write the data
-                writer.writerow((_time_now, _import_time, _block_time))
+            #     # write the data
+            #     writer.writerow((_time_now, _import_time, _block_time))
             return result
 
         return timing_function
@@ -66,7 +66,7 @@ def create_postgres_connection():
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
     )
-    connection.autocommit = True
+    # connection.autocommit = True
     return connection
 
 
