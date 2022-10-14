@@ -2,7 +2,8 @@ PDT Assigment 1
 
 Code works on unzipped conversations and authors
 
-Code is devidet int 5 main files:
+Code is devided into 5 main files:
+
 1. main
 2. Tools
 3. DataExtractor

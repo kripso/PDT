@@ -22,35 +22,33 @@ total_time = time.perf_counter()
 def timer_function(_type):
     def _timer_function(function):
         def timing_function(*args, **kwargs):
+            global total_time_delta
+            global total_time
+            
             start = time.perf_counter()
             result = function(*args, **kwargs)
             end = time.perf_counter()
+            
             block_time_delta = end - start
-
-            global total_time_delta
-            global total_time
-
             total_time_delta = time.perf_counter() - total_time
+            _time_now = time.strftime("%Y-%m-%dT%H:%MZ")
             block_min, block_sec = divmod(block_time_delta, 60)
             import_min, import_sec = divmod(total_time_delta, 60)
 
-            _time_now = time.strftime("%Y-%m-%dT%H:%MZ")
             _import_time = f"{int(import_min)}:{int(import_sec)}"
             _block_time = f"{int(block_min)}:{int(block_sec)}"
 
             print(
-                _type,
-                # time.strftime("%Y-%m-%dT%H:%MZ;")
-                # + f"{int(import_min)}:{int(import_sec)}"
-                # + f";{int(block_min)}:{int(block_sec)}",
+                f'{_type}\n',
+                f'{_time_now};{_import_time};{_block_time}',
                 flush=True,
             )
 
-            # with open("./docs/timer.csv", "a", encoding="UTF8", newline="") as f:
-            #     writer = csv.writer(f, delimiter=";")
+            with open("./docs/timer.csv", "a", encoding="UTF8", newline="") as f:
+                writer = csv.writer(f, delimiter=";")
 
-            #     # write the data
-            #     writer.writerow((_time_now, _import_time, _block_time))
+                # write the data
+                writer.writerow((_time_now, _import_time, _block_time))
             return result
 
         return timing_function
@@ -60,7 +58,7 @@ def timer_function(_type):
 
 def create_postgres_connection():
     connection = psycopg2.connect(
-        dbname=os.getenv("DB_NAME"),
+        dbname="PDT_2",
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         host=os.getenv("DB_HOST"),
