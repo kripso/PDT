@@ -12,7 +12,7 @@ class PostgresClient:
 
     def on_call(func):
         def inner(self, _func, _kwargs, last=False):
-            if len(self.threads) == 6:
+            if len(self.threads) == 10:
                 for t in self.threads:
                     t.join()
 

@@ -15,16 +15,11 @@ import csv
 #         return result
 
 #     return wrap_function
-total_time_delta = 0
-total_time = time.time()
 
 
-def timer_function(_type):
+def timer_function(_type: str, total_time: float):
     def _timer_function(function):
         def timing_function(*args, **kwargs):
-            global total_time_delta
-            global total_time
-
             start = time.perf_counter()
             result = function(*args, **kwargs)
             end = time.perf_counter()
@@ -33,23 +28,19 @@ def timer_function(_type):
             total_time_delta = time.time() - total_time
 
             _time_now = time.strftime("%Y-%m-%dT%H:%MZ")
-            block_min, block_sec = divmod(block_time_delta, 60)
-            import_min, import_sec = divmod(total_time_delta, 60)
+            block_min, block_sec = map(time_formater, divmod(block_time_delta, 60))
+            import_min, import_sec = map(time_formater, divmod(total_time_delta, 60))
 
-            _import_time = f"{int(import_min)}:{int(import_sec)}"
-            _block_time = f"{int(block_min)}:{int(block_sec)}"
+            _import_time = f"{import_min.zfill(2)}:{import_sec.zfill(2)}"
+            _block_time = f"{block_min.zfill(2)}:{block_sec.zfill(2)}"
 
-            print(
-                f"{_type}\n",
-                f"{_time_now};{_import_time};{_block_time}",
-                flush=True,
-            )
+            print(";".join((_time_now, _import_time, _block_time, _type)), flush=True)
 
             with open("./docs/timer.csv", "a", encoding="UTF8", newline="") as f:
                 writer = csv.writer(f, delimiter=";")
 
                 # write the data
-                writer.writerow((_type, _time_now, _import_time, _block_time))
+                writer.writerow((_time_now, _import_time, _block_time, _type))
             return result
 
         return timing_function
@@ -71,3 +62,7 @@ def create_postgres_connection():
 
 def clean_csv_value(value: Optional[Any]):
     return str(value).replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r").replace("\\", "\\\\").replace("\x00", "")
+
+
+def time_formater(float):
+    return str(int(float))
