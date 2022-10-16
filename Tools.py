@@ -49,7 +49,7 @@ def timer_function(_type):
                 writer = csv.writer(f, delimiter=";")
 
                 # write the data
-                writer.writerow((_time_now, _import_time, _block_time))
+                writer.writerow((_type, _time_now, _import_time, _block_time))
             return result
 
         return timing_function
@@ -70,11 +70,4 @@ def create_postgres_connection():
 
 
 def clean_csv_value(value: Optional[Any]):
-    return (
-        str(value)
-        .replace("\n", "\\n")
-        .replace("\t", "\\t")
-        .replace("\r", "\\r")
-        .replace("\\", "\\\\")
-        .replace("\x00", "")
-    )
+    return str(value).replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r").replace("\\", "\\\\").replace("\x00", "")
