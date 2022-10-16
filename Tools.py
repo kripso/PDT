@@ -16,7 +16,7 @@ import csv
 
 #     return wrap_function
 total_time_delta = 0
-total_time = time.perf_counter()
+total_time = time.time()
 
 
 def timer_function(_type):
@@ -24,13 +24,14 @@ def timer_function(_type):
         def timing_function(*args, **kwargs):
             global total_time_delta
             global total_time
-            
+
             start = time.perf_counter()
             result = function(*args, **kwargs)
             end = time.perf_counter()
-            
+
             block_time_delta = end - start
-            total_time_delta = time.perf_counter() - total_time
+            total_time_delta = time.time() - total_time
+
             _time_now = time.strftime("%Y-%m-%dT%H:%MZ")
             block_min, block_sec = divmod(block_time_delta, 60)
             import_min, import_sec = divmod(total_time_delta, 60)
@@ -39,8 +40,8 @@ def timer_function(_type):
             _block_time = f"{int(block_min)}:{int(block_sec)}"
 
             print(
-                f'{_type}\n',
-                f'{_time_now};{_import_time};{_block_time}',
+                f"{_type}\n",
+                f"{_time_now};{_import_time};{_block_time}",
                 flush=True,
             )
 
@@ -58,7 +59,7 @@ def timer_function(_type):
 
 def create_postgres_connection():
     connection = psycopg2.connect(
-        dbname="PDT_2",
+        dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         host=os.getenv("DB_HOST"),

@@ -1,116 +1,125 @@
+from Tools import timer_function
+from PostgresClient import PostgresClient
+from DataExtractor import DataExtractor
+import multiprocessing as mp
 import json
 import os
-from DataExtractor import DataExtractor
-from PostgresSchema import PostgresSchema
-from PostgresClient import PostgresClient
-from Tools import (
-    create_postgres_connection,
-    timer_function,
-)
-import multiprocessing as mp
 
-
-CONNECTION = create_postgres_connection()
 UNIQUE_AUTHORS = set()
 UNIQUE_TWEETS = set()
 UNIQUE_ENTITIES = set()
 UNIQUE_DOMAINS = set()
 UNIQUE_HASHTAGS = dict()
-tag_id = 0
+PROCS = list()
 
+DATA_PATH = "C:/Users/Krips/Documents/Programming/PDT/"
+AUTHORS_FILE = "authors.jsonl"
+TWEETS_FILE = "conversations.jsonl"
+
+CLIENT = PostgresClient()
 
 #
 # Authors
 #
-def authors_import(file_path: str, file_name: str):
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
-        authors = []
+def authors_import():
+    @timer_function("Authors")
+    def _authors_import():
+        with open(os.path.join(DATA_PATH, AUTHORS_FILE), encoding="utf-8") as file:
+            authors = []
 
-        for line in file:
-            _json_file = json.loads(line)
-            author_id = _json_file.get("id")
+            for line in file:
+                _json_file = json.loads(line)
+                author_id = _json_file.get("id")
 
-            if author_id in UNIQUE_AUTHORS:
-                continue
+                if author_id in UNIQUE_AUTHORS:
+                    continue
 
-            UNIQUE_AUTHORS.add(author_id)
-            authors.append(DataExtractor.generate_author_row(_json_file))
+                UNIQUE_AUTHORS.add(author_id)
+                authors.append(DataExtractor.generate_author_row(_json_file))
 
-            if len(authors) > 10_000:
-                PostgresClient.copy_authors(CONNECTION, authors)
-                authors = []
+                if len(authors) > 10_000:
+                    CLIENT.copy_authors(authors)
+                    authors = []
 
-    PostgresClient.copy_authors(CONNECTION, authors)
+        CLIENT.copy_authors(authors)
+
+    _authors_import()
 
 
 #
 # Tweets
 #
-def tweets_import(file_path: str, file_name: str):
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
-        tweets = []
-        authors = []
-        for line in file:
-            _json_file = json.loads(line)
-            tweet_id = _json_file.get("id")
+def tweets_import():
+    @timer_function("Tweets")
+    def _tweets_import():
+        with open(os.path.join(DATA_PATH, TWEETS_FILE), encoding="utf-8") as file:
+            tweets = []
+            authors = []
+            for line in file:
+                _json_file = json.loads(line)
+                tweet_id = _json_file.get("id")
 
-            if tweet_id in UNIQUE_TWEETS:
-                continue
+                if tweet_id in UNIQUE_TWEETS:
+                    continue
 
-            UNIQUE_TWEETS.add(tweet_id)
-            tweet = DataExtractor.generate_tweet_row(_json_file)
-            tweets.append(tweet)
+                UNIQUE_TWEETS.add(tweet_id)
+                tweet = DataExtractor.generate_tweet_row(_json_file)
+                tweets.append(tweet)
 
-            author_id = tweet["author_id"]
+                author_id = tweet["author_id"]
 
-            if author_id not in UNIQUE_AUTHORS:
-                UNIQUE_AUTHORS.add(author_id)
-                authors.append(DataExtractor.generate_author_row({"id": author_id}))
+                if author_id not in UNIQUE_AUTHORS:
+                    UNIQUE_AUTHORS.add(author_id)
+                    authors.append(DataExtractor.generate_author_row({"id": author_id}))
 
-            if len(tweets) > 10_000:
-                PostgresClient.copy_authors(CONNECTION, authors)
-                PostgresClient.copy_tweets(CONNECTION, tweets)
-                tweets = []
-                authors = []
+                if len(tweets) > 10_000:
+                    CLIENT.copy_authors(authors)
+                    CLIENT.copy_tweets(tweets)
+                    tweets = []
+                    authors = []
 
-    PostgresClient.copy_authors(CONNECTION, authors)
-    PostgresClient.copy_tweets(CONNECTION, tweets)
-    UNIQUE_AUTHORS.clear()
+        CLIENT.copy_authors(authors)
+        CLIENT.copy_tweets(tweets)
+        UNIQUE_AUTHORS.clear()
+
+    _tweets_import()
 
 
 #
 # Hashtags
 #
-def hashtags_import(file_path: str, file_name: str):
-    global tag_id
+def hashtags_import():
+    @timer_function("Hashtags")
+    def _hashtags_import():
+        tag_id = 0
 
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
-        hashtags = []
-        tweet_hashtags = []
-        for line in file:
-            _json_file = json.loads(line)
-            tweet_id = _json_file.get("id", r"\N")
+        with open(os.path.join(DATA_PATH, TWEETS_FILE), encoding="utf-8") as file:
+            hashtags = []
+            tweet_hashtags = []
+            for line in file:
+                _json_file = json.loads(line)
+                tweet_id = _json_file.get("id", r"\N")
 
-            for hashtag in DataExtractor.get_hashtags(_json_file):
-                if hashtag["tag"] not in UNIQUE_HASHTAGS:
-                    UNIQUE_HASHTAGS[hashtag["tag"]] = tag_id
-                    hashtag["id"] = tag_id
-                    hashtags.append(hashtag)
-                    tag_id += 1
+                for hashtag in DataExtractor.get_hashtags(_json_file):
+                    if hashtag["tag"] not in UNIQUE_HASHTAGS:
+                        UNIQUE_HASHTAGS[hashtag["tag"]] = tag_id
+                        hashtag["id"] = tag_id
+                        hashtags.append(hashtag)
+                        tag_id += 1
 
-                tweet_hashtags.append({"tweet_id": tweet_id, "hashtag_id": UNIQUE_HASHTAGS[hashtag["tag"]]})
+                    tweet_hashtags.append({"tweet_id": tweet_id, "hashtag_id": UNIQUE_HASHTAGS[hashtag["tag"]]})
 
-            if len(hashtags) > 10_000:
-                PostgresClient.execute_hashtags(CONNECTION, hashtags)
-                hashtags = []
+                if len(tweet_hashtags) > 10_000:
+                    CLIENT.execute_hashtags(hashtags)
+                    CLIENT.copy_tweet_hashtags(tweet_hashtags)
+                    hashtags = []
+                    tweet_hashtags = []
 
-            if len(tweet_hashtags) > 10_000:
-                PostgresClient.copy_tweet_hashtags(CONNECTION, tweet_hashtags)
-                tweet_hashtags = []
+        CLIENT.execute_hashtags(hashtags)
+        CLIENT.copy_tweet_hashtags(tweet_hashtags)
+        UNIQUE_HASHTAGS.clear()
 
-    PostgresClient.execute_hashtags(CONNECTION, hashtags)
-    PostgresClient.copy_tweet_hashtags(CONNECTION, tweet_hashtags)
-    UNIQUE_HASHTAGS.clear()
+    _hashtags_import()
 
 
 #
@@ -148,70 +157,82 @@ def context_domains_filter(context_domains):
 #
 # Context items
 #
-def context_items_import(file_path: str, file_name: str):
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
-        context_entities = []
-        context_domains = []
+def context_items_import():
+    @timer_function("Context Items")
+    def _context_items_import():
+        with open(os.path.join(DATA_PATH, TWEETS_FILE), encoding="utf-8") as file:
+            context_entities = []
+            context_domains = []
 
-        for line in file:
-            _json_file = json.loads(line)
+            for line in file:
+                _json_file = json.loads(line)
 
-            context_entities.extend(context_entities_filter(DataExtractor.get_context_entities(_json_file)))
-            context_domains.extend(context_domains_filter(DataExtractor.get_context_domains(_json_file)))
-            if len(context_entities) > 10_000:
-                PostgresClient.copy_context_entities(CONNECTION, context_entities)
-                context_entities = []
-            if len(context_domains) > 10_000:
-                PostgresClient.copy_context_domains(CONNECTION, context_domains)
-                context_domains = []
+                context_entities.extend(context_entities_filter(DataExtractor.get_context_entities(_json_file)))
+                context_domains.extend(context_domains_filter(DataExtractor.get_context_domains(_json_file)))
 
-    PostgresClient.copy_context_entities(CONNECTION, context_entities)
-    PostgresClient.copy_context_domains(CONNECTION, context_domains)
-    UNIQUE_DOMAINS.clear()
-    UNIQUE_ENTITIES.clear()
+                if len(context_entities) > 10_000:
+                    CLIENT.copy_context_entities(context_entities)
+                    CLIENT.copy_context_domains(context_domains)
+                    context_entities = []
+                    context_domains = []
+
+        CLIENT.copy_context_entities(context_entities)
+        CLIENT.copy_context_domains(context_domains)
+        UNIQUE_DOMAINS.clear()
+        UNIQUE_ENTITIES.clear()
+
+    _context_items_import()
 
 
 #
 # Tweet references
 #
-def tweet_references_import(file_path: str, file_name: str, unique_tweets: set):
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
-        block_entries = []
+def tweet_references_import(unique_tweets: set):
+    @timer_function("Tweet References")
+    def _tweet_references_import():
+        with open(os.path.join(DATA_PATH, TWEETS_FILE), encoding="utf-8") as file:
+            block_entries = []
 
-        for line in file:
-            for tweet_reference in DataExtractor.generate_tweet_references(json.loads(line)):
-                parent_id = tweet_reference.get("parent_id")
-                if parent_id in unique_tweets:
-                    block_entries.append(tweet_reference)
+            for line in file:
+                for tweet_reference in DataExtractor.generate_tweet_references(json.loads(line)):
+                    parent_id = tweet_reference.get("parent_id")
+                    if parent_id in unique_tweets:
+                        block_entries.append(tweet_reference)
 
-            if len(block_entries) > 10_000:
-                PostgresClient.copy_tweet_references(CONNECTION, block_entries)
-                block_entries = []
+                if len(block_entries) > 100_000:
+                    CLIENT.copy_tweet_references(block_entries)
+                    block_entries = []
 
-    PostgresClient.copy_tweet_references(CONNECTION, block_entries)
+        CLIENT.copy_tweet_references(block_entries)
+
+    _tweet_references_import()
 
 
 #
 # Context Annotations
 #
-def context_annotations_import(file_path: str, file_name: str):
-    with open(os.path.join(file_path, file_name), encoding="utf-8") as file:
-        context_annotations = []
+def context_annotations_import():
+    @timer_function("Context Annotations")
+    def _context_annotations_import():
+        with open(os.path.join(DATA_PATH, TWEETS_FILE), encoding="utf-8") as file:
+            context_annotations = []
 
-        for line in file:
-            _json_file = json.loads(line)
-            context_annotations.extend(DataExtractor.get_context_annotations_row(_json_file))
-            if len(context_annotations) > 10_000:
-                PostgresClient.copy_context_annotations(CONNECTION, context_annotations)
-                context_annotations = []
+            for line in file:
+                _json_file = json.loads(line)
+                context_annotations.extend(DataExtractor.get_context_annotations_row(_json_file))
+                if len(context_annotations) > 100_000:
+                    CLIENT.copy_context_annotations(context_annotations)
+                    context_annotations = []
 
-        PostgresClient.copy_context_annotations(CONNECTION, context_annotations)
+            CLIENT.copy_context_annotations(context_annotations)
+
+    _context_annotations_import()
 
 
 #
-# Parallel import
+# Links, Annotations
 #
-def N_rows_import(lines):
+def N_rows_parse(lines):
     links = []
     annotations = []
 
@@ -221,75 +242,64 @@ def N_rows_import(lines):
         annotations.extend(DataExtractor.get_annotations_row(_json_file))
 
         if len(links) > 10_000:
-            PostgresClient.copy_links(CONNECTION, filter(lambda x: x is not None, links))
+            CLIENT.copy_links(filter(lambda x: x is not None, links))
             links = []
 
         if len(annotations) > 10_000:
-            PostgresClient.copy_annotations(CONNECTION, annotations)
+            CLIENT.copy_annotations(annotations)
             annotations = []
 
-    PostgresClient.copy_links(CONNECTION, filter(lambda x: x is not None, links))
-    PostgresClient.copy_annotations(CONNECTION, annotations)
+    CLIENT.copy_links(filter(lambda x: x is not None, links))
+    CLIENT.copy_annotations(annotations)
 
 
-@timer_function("import")
-def parallel_import(file_path: str):
-    _kwargs = {"file_path": file_path, "file_name": "conversations.jsonl"}
+def N_rows_import():
+    @timer_function("Links, Annotations")
+    def _N_rows_import():
+        with open(os.path.join(DATA_PATH, TWEETS_FILE), encoding="utf-8") as file:
+            lines = []
+            for index, line in enumerate(file):
+                lines.append(line)
+                if index % 100_000 == 0:
+                    N_rows_parse(lines)
+                    lines = []
 
-    procs = list()
+        N_rows_parse(lines)
 
-    p = mp.Process(target=context_items_import, kwargs=_kwargs)
+    _N_rows_import()
+
+
+@timer_function("Import")
+def parallel_import():
+    p = mp.Process(target=context_items_import, kwargs={})
     p.start()
-    procs.append(p)
+    PROCS.append(p)
 
-    authors_import(file_path, "authors.jsonl")
-    tweets_import(file_path, "conversations.jsonl")
+    authors_import()
 
-    p = mp.Process(target=context_annotations_import, kwargs=_kwargs)
+    tweets_import()
+
+    p = mp.Process(target=context_annotations_import, kwargs={})
     p.start()
-    procs.append(p)
+    PROCS.append(p)
 
-    p = mp.Process(target=hashtags_import, kwargs=_kwargs)
+    p = mp.Process(target=hashtags_import, kwargs={})
     p.start()
-    procs.append(p)
+    PROCS.append(p)
 
-    __kwargs = _kwargs.copy()
-    __kwargs["unique_tweets"] = UNIQUE_TWEETS
-    
+    p = mp.Process(target=tweet_references_import, kwargs={"unique_tweets": UNIQUE_TWEETS})
+    p.start()
+    PROCS.append(p)
+
     UNIQUE_TWEETS.clear()
-    
-    p = mp.Process(target=tweet_references_import, kwargs=__kwargs)
-    p.start()
-    procs.append(p)
 
-    with open(os.path.join(file_path, "conversations.jsonl"), encoding="utf-8") as file:
-        lines = []
-        for index, line in enumerate(file):
-            lines.append(line)
-            if index % 1_000_000 == 0:
-                p = mp.Process(target=N_rows_import, kwargs={"lines": lines})
-                p.start()
-                procs.append(p)
-                lines = []
-
-    p = mp.Process(target=N_rows_import, kwargs={"lines": lines})
+    p = mp.Process(target=N_rows_import, kwargs={})
     p.start()
-    procs.append(p)
-    for p in procs:
+    PROCS.append(p)
+
+    for p in PROCS:
         p.join()
 
 
 if __name__ == "__main__":
-    with CONNECTION.cursor() as cursor:
-        PostgresSchema.create_authors_table(cursor)
-        PostgresSchema.create_tweets_table(cursor)
-        PostgresSchema.create_tweet_references_table(cursor)
-        PostgresSchema.create_links_table(cursor)
-        PostgresSchema.create_hashtags_table(cursor)
-        PostgresSchema.create_annotations_table(cursor)
-        PostgresSchema.create_tweet_hashtags_table(cursor)
-        PostgresSchema.create_context_domains_table(cursor)
-        PostgresSchema.create_context_entities_table(cursor)
-        PostgresSchema.create_context_annotations_table(cursor)
-
-    parallel_import("C:/Users/Krips/Documents/Programming/PDT/")
+    parallel_import()

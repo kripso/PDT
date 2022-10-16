@@ -3,12 +3,29 @@ from typing import Iterator, Dict, Any
 import io
 from Tools import clean_csv_value
 import psycopg2.extras
+from PostgresSchema import PostgresSchema
+from Tools import create_postgres_connection
 
 
 class PostgresClient:
+    def __init__(self) -> None:
+        self.connection = create_postgres_connection()
+
+        with self.connection.cursor() as cursor:
+            PostgresSchema.create_authors_table(cursor)
+            PostgresSchema.create_tweets_table(cursor)
+            PostgresSchema.create_tweet_references_table(cursor)
+            PostgresSchema.create_links_table(cursor)
+            PostgresSchema.create_hashtags_table(cursor)
+            PostgresSchema.create_annotations_table(cursor)
+            PostgresSchema.create_tweet_hashtags_table(cursor)
+            PostgresSchema.create_context_domains_table(cursor)
+            PostgresSchema.create_context_entities_table(cursor)
+            PostgresSchema.create_context_annotations_table(cursor)
+
     @staticmethod
-    def copy_authors(connection, authors: Iterator[Dict[str, Any]]) -> None:
-        with connection.cursor() as cursor:
+    def copy_authors(self, authors: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for author in authors:
                 csv_file_like_object.write(
@@ -33,8 +50,8 @@ class PostgresClient:
             cursor.copy_from(csv_file_like_object, "authors", sep="\t")
 
     @staticmethod
-    def copy_tweets(connection, tweets: Iterator[Dict[str, Any]]) -> None:
-        with connection.cursor() as cursor:
+    def copy_tweets(self, tweets: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for tweet in tweets:
                 csv_file_like_object.write(
@@ -62,10 +79,8 @@ class PostgresClient:
             cursor.copy_from(csv_file_like_object, "tweets", sep="\t")
 
     @staticmethod
-    def copy_context_entities(
-        connection, context_entities: Iterator[Dict[str, Any]]
-    ) -> None:
-        with connection.cursor() as cursor:
+    def copy_context_entities(self, context_entities: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for context_entity in context_entities:
                 csv_file_like_object.write(
@@ -85,10 +100,8 @@ class PostgresClient:
             cursor.copy_from(csv_file_like_object, "context_entities", sep="\t")
 
     @staticmethod
-    def copy_context_domains(
-        connection, context_domains: Iterator[Dict[str, Any]]
-    ) -> None:
-        with connection.cursor() as cursor:
+    def copy_context_domains(self, context_domains: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for context_domain in context_domains:
                 csv_file_like_object.write(
@@ -108,10 +121,8 @@ class PostgresClient:
             cursor.copy_from(csv_file_like_object, "context_domains", sep="\t")
 
     @staticmethod
-    def copy_context_annotations(
-        connection, context_annotations: Iterator[Dict[str, Any]]
-    ) -> None:
-        with connection.cursor() as cursor:
+    def copy_context_annotations(self, context_annotations: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for context_annotation in context_annotations:
                 csv_file_like_object.write(
@@ -136,10 +147,8 @@ class PostgresClient:
             )
 
     @staticmethod
-    def copy_tweet_references(
-        connection, tweet_references: Iterator[Dict[str, Any]]
-    ) -> None:
-        with connection.cursor() as cursor:
+    def copy_tweet_references(self, tweet_references: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for tweet_reference in tweet_references:
                 csv_file_like_object.write(
@@ -164,8 +173,8 @@ class PostgresClient:
             )
 
     @staticmethod
-    def copy_annotations(connection, annotations: Iterator[Dict[str, Any]]) -> None:
-        with connection.cursor() as cursor:
+    def copy_annotations(self, annotations: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for annotation in annotations:
                 csv_file_like_object.write(
@@ -191,8 +200,8 @@ class PostgresClient:
             )
 
     @staticmethod
-    def copy_links(connection, links: Iterator[Dict[str, Any]]) -> None:
-        with connection.cursor() as cursor:
+    def copy_links(self, links: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for link in links:
                 csv_file_like_object.write(
@@ -222,7 +231,7 @@ class PostgresClient:
         hashtags: Iterator,
         page_size: int = 100,
     ) -> None:
-        with connection.cursor() as cursor:
+        with self.connection.cursor() as cursor:
             psycopg2.extras.execute_values(
                 cursor,
                 """
@@ -239,10 +248,8 @@ class PostgresClient:
             )
 
     @staticmethod
-    def copy_tweet_hashtags(
-        connection, tweet_hashtags: Iterator[Dict[str, Any]]
-    ) -> None:
-        with connection.cursor() as cursor:
+    def copy_tweet_hashtags(self, tweet_hashtags: Iterator[Dict[str, Any]]) -> None:
+        with self.connection.cursor() as cursor:
             csv_file_like_object = io.StringIO()
             for tweet_hashtag in tweet_hashtags:
                 csv_file_like_object.write(
