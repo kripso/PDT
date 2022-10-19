@@ -4,7 +4,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS authors CASCADE;
-            CREATE UNLOGGED TABLE authors (
+            CREATE TABLE authors (
                 id                      BIGINT PRIMARY KEY,
                 name                    VARCHAR ( 255 ),
                 username                VARCHAR ( 255 ),
@@ -22,7 +22,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS context_domains CASCADE;
-            CREATE UNLOGGED TABLE context_domains (
+            CREATE TABLE context_domains (
                 id                      BIGINT PRIMARY KEY,
                 name                    VARCHAR ( 255 ) NOT NULL,
                 description             TEXT
@@ -35,7 +35,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS context_entities CASCADE;
-            CREATE UNLOGGED TABLE context_entities (
+            CREATE TABLE context_entities (
                 id                      BIGINT PRIMARY KEY,
                 name                    VARCHAR ( 255 ) NOT NULL,
                 description             TEXT
@@ -49,7 +49,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS context_annotations CASCADE;
-            CREATE UNLOGGED TABLE context_annotations (
+            CREATE TABLE context_annotations (
                 id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 context_domain_id       BIGINT REFERENCES context_domains(id) NOT NULL,
@@ -63,7 +63,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS annotations  CASCADE;
-            CREATE UNLOGGED TABLE annotations (
+            CREATE TABLE annotations (
                 id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 value                   TEXT NOT NULL,
@@ -78,7 +78,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS links CASCADE;
-            CREATE UNLOGGED TABLE links (
+            CREATE TABLE links (
                 id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 url                     VARCHAR ( 2048 ) NOT NULL,
@@ -93,7 +93,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS tweet_references CASCADE;
-            CREATE UNLOGGED TABLE tweet_references (
+            CREATE TABLE tweet_references (
                 id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 parent_id               BIGINT REFERENCES tweets(id) NOT NULL,
@@ -107,7 +107,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS hashtags CASCADE;
-            CREATE UNLOGGED TABLE hashtags (
+            CREATE TABLE hashtags (
                 id                      BIGINT PRIMARY KEY,
                 tag                     TEXT UNIQUE
             );
@@ -119,7 +119,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS tweet_hashtags CASCADE;
-            CREATE UNLOGGED TABLE tweet_hashtags (
+            CREATE TABLE tweet_hashtags (
                 id                      BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
                 tweet_id                BIGINT REFERENCES tweets(id) NOT NULL,
                 hashtag_id              BIGINT REFERENCES hashtags(id) NOT NULL
@@ -132,7 +132,7 @@ class PostgresSchema:
         cursor.execute(
             """
             DROP TABLE IF EXISTS tweets CASCADE;
-            CREATE UNLOGGED TABLE tweets (
+            CREATE TABLE tweets (
                 id                      BIGINT PRIMARY KEY,
                 author_id               BIGINT REFERENCES authors(id) NOT NULL,
                 content                 TEXT NOT NULL,
