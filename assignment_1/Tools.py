@@ -5,17 +5,6 @@ from datetime import datetime
 import os
 import csv
 
-# def import_timer_function(function):
-#     def wrap_function(*args, **kwargs):
-#         import_start_time = time.time()
-#         result = function(*args, **kwargs)
-#         import_end_time = time.time()
-#         time_delta = import_end_time - import_start_time
-#         print(f"import time: {int(time_delta/60)}:{int(time_delta % 60)}")
-#         return result
-
-#     return wrap_function
-
 
 def timer_function(_type: str, total_time: float):
     def _timer_function(function):
@@ -36,7 +25,7 @@ def timer_function(_type: str, total_time: float):
 
             print(";".join((_time_now, _import_time, _block_time, _type)), flush=True)
 
-            with open("./docs/timer.csv", "a", encoding="UTF8", newline="") as f:
+            with open("./assignment_1/docs/timer.csv", "a", encoding="UTF8", newline="") as f:
                 writer = csv.writer(f, delimiter=";")
 
                 # write the data
