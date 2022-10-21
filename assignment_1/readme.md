@@ -15,3 +15,5 @@ Some helper tools and timer wrapper are in Tools.py
 PostgresSchema is used to store schema of used tables
 PostgresClient is used to pupulate postgres tables
 DataExtractor extracts data from dictionaries
+
+Final import time 30:39.
