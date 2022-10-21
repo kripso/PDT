@@ -41,7 +41,6 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM authors WHERE username = 'mfa_russia';
 ![image](./assets/Pasted%20image%2020221019230400.png)
 
 as we can see increasing **max_parallel_workers_per_gather** to more that 5 on this query didnt affect the query optimizer even though that **max_parallel_workers** is 12.
-TODO: Why
 
 ## 3. Vytvorte btree index nad username a pozrite ako sa zmenil čas a porovnajte výstup oproti požiadavke bez indexu. Potrebuje plánovač v tejto požiadavke viac workerov? Čo ovplyvnilo zásadnú zmenu času?
 
@@ -89,6 +88,9 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM authors WHERE followers_count BETWEEN 1
 
 ![image](./assets/Pasted%20image%2020221021185147.png)
 
+Index was always used. Bitmap Index Scan is used together with Bitmap Heap Scan. Bitmap Index Scan constructs a bitmap of potential row locations and Heap Scan than decite which data to extract from it.
+Its kind of in the middle of sequential scan and index scan. Recheck cond was used because a lossy bitmap was used because work_mem was not big enough to contain a bitmap that contains one bit per table row.
+
 ## 7. Vytvorte ďalšie 3 btree indexy na name, followers_count, a description a insertnite si svojho používateľa (to je jedno aké dáta) do authors. Koľko to trvalo? Dropnite indexy a spravte to ešte raz. Prečo je tu rozdiel?
 
 ```sql
@@ -134,6 +136,8 @@ CREATE INDEX index_tweet_retweet_count ON tweets (retweet_count);
 
 result: `Query returned successfully in 9 secs 6 msec.`
 
+Creating a B-tree index over numeric values of 8 bytes is much faster than going through alphanumeric values of potentialy unlimited lenght. On text columns the b-tree algorithm has to go over the whole text to create the index and therefore is much slower.
+
 ## 9. Porovnajte indexy pre retweet_count, content, followers_count, name,... v čom sa líšia pre nasledovné parametre: počet root nódov, level stromu, a priemerná veľkosť itemu. Vysvetlite
 
 ```sql
@@ -146,7 +150,6 @@ SELECT root, level FROM bt_metap('index_tweet_content');
 SELECT avg_item_size FROM bt_page_stats('index_tweet_content',10000);
 ```
 
-![image](./assets/Pasted%20image%2020221020204416.png)
 ![image](./assets/Pasted%20image%2020221020204834.png)
 ![image](./assets/Pasted%20image%2020221020205250.png)
 
@@ -155,7 +158,6 @@ SELECT root, level FROM bt_metap('index_tweet_retweet_count');
 SELECT avg_item_size FROM bt_page_stats('index_tweet_retweet_count',10000);
 ```
 
-![image](./assets/Pasted%20image%2020221020204442.png)
 ![image](./assets/Pasted%20image%2020221020205645.png)
 ![image](./assets/Pasted%20image%2020221020205739.png)
 
@@ -164,7 +166,6 @@ SELECT root, level FROM bt_metap('index_authors_name');
 SELECT avg_item_size FROM bt_page_stats('index_authors_name',10000);
 ```
 
-![image](./assets/Pasted%20image%2020221020204502.png)
 ![image](./assets/Pasted%20image%2020221020205752.png)
 ![image](./assets/Pasted%20image%2020221020205812.png)
 
@@ -173,9 +174,10 @@ SELECT root, level FROM bt_metap('index_authors_followers_count');
 SELECT avg_item_size FROM bt_page_stats('index_authors_followers_count',1000);
 ```
 
-![image](./assets/Pasted%20image%2020221020204517.png)
 ![image](./assets/Pasted%20image%2020221020205827.png)
 ![image](./assets/Pasted%20image%2020221020205906.png)
+
+The root in content is the largest becuse it has the largest number of children than there is authors names. This would corespond with the number of levels but that wouldnt have to happen necessarily. Avg item size corespons to avg size of an item in 10 000 item sample that bt_page_stats took.
 
 ## 10. Vyhľadajte v conversations content meno „Gates“ na ľubovoľnom mieste a porovnajte výsledok po tom, ako content naindexujete pomocou btree. V čom je rozdiel a prečo?
 
@@ -193,6 +195,8 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tweets WHERE "content" LIKE '%Gates%';
 
 ![image](./assets/Pasted%20image%2020221020210731.png)
 
+There is no difference when using LIKE with prefix and sufix search b tree would be used if we search for equality.
+
 ## 11. Vyhľadajte tweet, ktorý začína “There are no excuses” a zároveň je obsah potenciálne senzitívny (possibly_sensitive). Použil sa index? Prečo? Ako query zefektívniť?
 
 ```sql
@@ -209,6 +213,8 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tweets WHERE possibly_sensitive=true AN
 
 ![image](./assets/Pasted%20image%2020221021152016.png)
 
+Index was not used for more or less same reason why it wasn't used in the last exercise. Although b-tree index searches on prefix basis we have to enable one parameter which would allow for partial equality meaning prefix search would work. And the parameter was used in the second portion "varchar_pattern_ops". From testing we can see the same query took only 0.090ms.
+
 ## 12. Vytvorte nový btree index, tak aby ste pomocou neho vedeli vyhľadať tweet, ktorý končí reťazcom „<https://t.co/pkFwLXZlEm>“ kde nezáleží na tom ako to napíšete. Popíšte čo jednotlivé funkcie robia
 
 ```sql
@@ -219,13 +225,22 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tweets WHERE REVERSE(LOWER("content")) 
 
 ![image](./assets/Pasted%20image%2020221021161740.png)
 
+Almost the same approach that we took on excersise 11 can be used here with two differences.
+
+1. we use reverse to reverse the content
+2. we use lower to make the whole content be in lower case
+
+First change is used to help with sufix search as this approarch is the easiest and fastest to perform. We basicaly do a prefix search but in reverse.
+
+The second change converts the content to lower case because we want to have the freadom of writing the query imput without case sensitivity.
+
 ## 14. Nájdite conversations, ktoré majú reply_count väčší ako 150, retweet_count väčší rovný ako 5000 a výsledok zoraďte podľa quote_count. Následne spravte jednoduché indexy a popíšte ktoré má a ktoré nemá zmysel robiť a prečo. Popíšte a vysvetlite query plan, ktorý sa aplikuje v prípade použitia jednoduchých indexov
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tweets WHERE retweet_count >= 5000 AND reply_count > 150 ORDER BY quote_count DESC;
 ```
 
-![image](./assets/Pasted%20image%2020221021171945.png)
+![image](./assets/Pasted%20image%2020221021233505.png)
 
 ```sql
 CREATE INDEX index_tweets_retweet_count ON tweets (retweet_count);
@@ -233,15 +248,19 @@ CREATE INDEX index_tweets_quote_count ON tweets (quote_count);
 CREATE INDEX index_tweets_reply_count ON tweets (reply_count);
 ```
 
-![image](./assets/Pasted%20image%2020221021172121.png)
+![image](./assets/Pasted%20image%2020221021233345.png)
+
+The only index that was meanigful based on query optimizer was index_tweets_retweet_count, as optimizer only used this one.
 
 ## 15. Na predošlú query spravte zložený index a porovnajte výsledok s tým, keď je sú indexy separátne. Výsledok zdôvodnite. Popíšte použitý query plan. Aký je v nich rozdiel?
 
 ```sql
-CREATE INDEX index_tweets_reply_retweet_counts ON tweets (reply_count, retweet_count);
+CREATE INDEX index_tweets_reply_retweet_counts ON tweets (reply_count, retweet_count, quote_count);
 ```
 
 ![image](./assets/Pasted%20image%2020221021172436.png)
+
+the optimizer prioritized the complex index because all the walues were used in search.
 
 ## 16. Napíšte dotaz tak, aby sa v obsahu konverzácie našlo slovo „Putin“ a zároveň spojenie „New World Order“, kde slová idú po sebe a zároveň obsah je senzitívny. Vyhľadávanie má byť indexe. Popíšte použitý query plan pre GiST aj pre GIN. Ktorý je efektívnejší?
 
@@ -261,6 +280,8 @@ CREATE INDEX gist_index_tweets_content ON tweets USING gist(vector_content);
 EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tweets WHERE vector_content @@ to_tsquery('english', 'Putin & New <-> World <-> Order') AND possibly_sensitive=true;
 ```
 
+Even though the Based on what GIST should do, where it should have better performance it in our case does not have. From our testing it has way worse performace for reason i cant explain. Whereas GIN which should be more precise and slower has better performace. The wanted behavior coresponds with why the optimizer used GIST over GIN but somehow the GIN had better performance.
+
 ![image](./assets/Pasted%20image%2020221021202518.png)
 
 ## 17. Vytvorte vhodný index pre vyhľadávanie v links.url tak aby ste našli kampane z ‘darujme.sk’. Ukážte dotaz a použitý query plan. Vysvetlite prečo sa použil tento index
@@ -273,6 +294,8 @@ EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM links WHERE url LIKE '%darujme.sk%';
 ```
 
 ![image](./assets/Pasted%20image%2020221021203247.png)
+
+Gin index over urls with help of trigrams is a clear choice here because we want to find contains in the url.
 
 ## 18. Vytvorte query pre slová "Володимир" a "Президент" pomocou FTS (tsvector a tsquery) v angličtine v stĺpcoch conversations.content, authors.decription a authors.username, kde slová sa môžu nachádzať v prvom, druhom ALEBO treťom stĺpci. Teda vyhovujúci záznam je ak aspoň jeden stĺpec má „match“. Výsledky zoradíte podľa retweet_count zostupne. Pre túto query vytvorte vhodné indexy tak, aby sa nepoužil ani raz sekvenčný scan (správna query dobehne rádovo v milisekundách, max sekundách na super starých PC). Zdôvodnite čo je problém s OR podmienkou a prečo AND je v poriadku pri joine
 
@@ -346,3 +369,7 @@ ORDER BY
 
 ![image](./assets/Pasted%20image%2020221021222736.png)
 ![image](./assets/Pasted%20image%2020221021222753.png)
+
+When using OR in the query the optimizer uses HASH JOIN which does not support the use of indexing. So when we want to use and in our query we can create separate queries for each or statement and then UNITE them to one table.
+
+Here for some reason using tweets.retweet_count as tweet_retweet_count would break this query and it would do one segential scan, so i had to ommit it from the query.
