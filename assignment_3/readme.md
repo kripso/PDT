@@ -1,4 +1,4 @@
-link na github: 
+link na github: https://github.com/kripso/PDT/tree/master/assignment_3
 
 ## 1. stiahnite a importujte si dataset pre Open Street mapy z https://download.geofabrik.de/europe/slovakia.html do novej DB  
 
