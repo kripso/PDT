@@ -225,7 +225,8 @@ SELECT
                     ST_Transform(way, 4326)::geography AS st_way 
                 FROM 
                     planet_osm_polygon 
-                    WHERE "name"='Fakulta informatiky a informačných technológií STU'),
+                    WHERE "name"='Fakulta informatiky a informačných technológií STU'
+			),
             (
                 SELECT 
                     ST_Transform(way, 4326)::geography AS st_way 
