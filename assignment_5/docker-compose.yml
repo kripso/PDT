@@ -1,0 +1,92 @@
+version: '2.2'
+services:
+  ES01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.2
+    container_name: ES01
+    environment:
+      - node.name=ES01
+      - xpack.security.enabled=false
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=ES02,ES03
+      - cluster.initial_master_nodes=ES01,ES02,ES03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data_volume:/data
+    ports:
+      - 9200:9200
+    networks:
+      - elastic
+
+  ES02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.2
+    container_name: ES02
+    environment:
+      - node.name=ES02
+      - xpack.security.enabled=false
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=ES01,ES03
+      - cluster.initial_master_nodes=ES01,ES02,ES03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data_volume:/data
+    networks:
+      - elastic
+
+  ES03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.2
+    container_name: ES03
+    environment:
+      - node.name=ES03
+      - xpack.security.enabled=false
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=ES01,ES02
+      - cluster.initial_master_nodes=ES01,ES02,ES03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - data_volume:/data
+    networks:
+      - elastic
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.5.2
+    container_name: kibana
+    depends_on:
+      - ES01
+      - ES02
+      - ES03
+    ports:
+      - '5601:5601'
+    networks:
+      - elastic
+    environment:
+      ELASTICSEARCH_URL: http://localhost:9200
+      ELASTICSEARCH_HOSTS: '["http://ES01:9200","http://ES02:9200","http://ES03:9200"]'
+
+networks:
+  elastic:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+
+volumes:
+  data_volume:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: C:/Users/Krips/Documents/Programming/PDT/data/
