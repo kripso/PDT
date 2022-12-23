@@ -1,6 +1,14 @@
-create table tweets_with_author as(
+CREATE INDEX idx_id ON tweets(id);
+CREATE INDEX idx_authors_id ON authors(id);
+CREATE INDEX idx_parent_id ON tweet_references(parent_id);
+CREATE INDEX idx_tweet_references_tweet_id ON tweet_references(tweet_id);
+CREATE INDEX idx_annotations_tweet_id ON annotations(tweet_id);
+CREATE INDEX idx_links_tweet_id ON links(tweet_id);
+CREATE INDEX idx_hashtags_tweet_id ON tweet_hashtags(tweet_id);
+
+create table tweets_merged as(
 	Select 
-		ntile(1024) over (ORDER BY id), * 
+		* 
 	from 
 		tweets 
 		left join ( 
@@ -30,6 +38,26 @@ create table tweets_with_author as(
 		) context_annotations USING("id")
 )
 
-create table tweets_with_pid as (
-	select ntile(1024) over (ORDER BY id), * from tweets_with_author
+CREATE INDEX idx_tweets_merged_id ON tweets_merged(id);
+CREATE INDEX idx_tweet_reference_id ON tweets_merged(tweet_reference_id);
+
+create table tweet_docs as(
+	Select 
+		*
+	from
+		tweets_merged as doc_a
+	left join (
+		SELECT
+			doc_b.id as tweet_reference_id, doc_b.content as referenced_content, doc_b.author_id as referenced_author_id, doc_b.author_name as referenced_author_name, doc_b.author_username as referenced_author_username, doc_b.hashtag_ids as referenced_hashtag_ids, doc_b.hashtag_tags as referenced_hashtag_tags
+		from
+		tweets_merged as doc_b
+	) doc_b using(tweet_reference_id)
+)
+
+CREATE INDEX idx_tweet_docs_id ON tweet_docs(id);
+
+create table tweet_docs_with_pid as (
+	select 
+		ntile(1024) over (ORDER BY id), *
+	from tweet_docs
 )
