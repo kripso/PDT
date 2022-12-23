@@ -6,6 +6,7 @@ services:
     environment:
       - node.name=ES01
       - xpack.security.enabled=false
+      - xpack.monitoring.collection.enabled=true
       - cluster.name=es-docker-cluster
       - discovery.seed_hosts=ES02,ES03
       - cluster.initial_master_nodes=ES01,ES02,ES03
@@ -28,6 +29,7 @@ services:
     environment:
       - node.name=ES02
       - xpack.security.enabled=false
+      - xpack.monitoring.collection.enabled=true
       - cluster.name=es-docker-cluster
       - discovery.seed_hosts=ES01,ES03
       - cluster.initial_master_nodes=ES01,ES02,ES03
@@ -39,6 +41,8 @@ services:
         hard: -1
     volumes:
       - data_volume:/data
+    ports:
+      - 9201:9200
     networks:
       - elastic
 
@@ -48,6 +52,7 @@ services:
     environment:
       - node.name=ES03
       - xpack.security.enabled=false
+      - xpack.monitoring.collection.enabled=true
       - cluster.name=es-docker-cluster
       - discovery.seed_hosts=ES01,ES02
       - cluster.initial_master_nodes=ES01,ES02,ES03
@@ -59,6 +64,8 @@ services:
         hard: -1
     volumes:
       - data_volume:/data
+    ports:
+      - 9202:9200
     networks:
       - elastic
 

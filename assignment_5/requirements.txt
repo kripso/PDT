@@ -1,0 +1,3 @@
+more_itertools
+elasticsearch
+psycopg2-binary

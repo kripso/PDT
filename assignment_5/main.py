@@ -1,86 +1,138 @@
-from datetime import datetime
-
-import psycopg2
+from concurrent.futures import ProcessPoolExecutor
 from elasticsearch import Elasticsearch
 from elasticsearch import helpers
+from collections import deque
+from datetime import datetime
+import psycopg2.extras
+import psycopg2
+import os
+PARALEL = 10
+
+# def create_postgres_connection():
+#     connection = psycopg2.connect(
+#         dbname="PDT",
+#         user="postgres",
+#         password="291122",
+#         host="localhost",
+#         port="5432",
+#     )
+#     # connection.autocommit = True
+#     return connection
+
+def create_postgres_connection():
+    connection = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+    )
+
+    return connection
+
+
+def paralel_read(paralel_id, limit=None):
+    es = Elasticsearch("http://localhost:9200")
+    conn = create_postgres_connection()
+    with conn.cursor(name="named", cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+        cursor.itersize = 1_000
+        cursor.execute(f'select * from tweets_with_pid where MOD(tweets_with_pid.ntile, {PARALEL})={paralel_id} {f"limit {limit}" if limit != None else ""}')
+        
+        
+        docs = []
+        for index, row in enumerate(cursor, 1):
+            if index % 100_000 == 0:
+                print(index, flush= True)
+            if index % 2000 == 0:
+                # print(index, flush= True)
+                deque(helpers.parallel_bulk(es, docs, request_timeout=120))
+                docs = []
+            doc = {
+                '_index': 'test',
+                '_id': row.get('id'),
+                'author': {},
+                'annotations': [],
+                'domains': [],
+                'entities': [],
+                'hashtags': [],
+                'links': [],
+                'meta': {},
+            }
+            doc['author'] = {
+                "id": row.get('author_id'),                 
+                "name": row.get('author_name'),                 
+                "username": row.get('author_username'),                 
+                "description": row.get('author_description'),                 
+                "followers_count": row.get('followers_count'),                 
+                "following_count": row.get('following_count'),                 
+                "tweet_count": row.get('tweet_count'),                 
+                "listed_count": row.get('listed_count'),                 
+            }
+            if row.get('annotations_ids') != None:
+                for _index, id in enumerate(row.get('annotations_ids')):
+                    doc['annotations'].append({
+                        "id": id,
+                        "value": row.get('annotation_values')[_index],
+                        "type": row.get('annotation_types')[_index],
+                        "probability": row.get('annotation_probabilities')[_index],
+                    })
+            if row.get('domain_ids') != None:
+                for _index, id in enumerate(row.get('domain_ids')):
+                    doc['domains'].append({
+                        "id": id,
+                        "name": row.get('domain_names')[_index],
+                        "desc": row.get('domain_descriptions')[_index],
+                    })
+            if row.get('entity_ids') != None:
+                for _index, id in enumerate(row.get('entity_ids')):
+                    doc['entities'].append({
+                        "id": id,
+                        "name": row.get('entity_names')[_index],
+                        "desc": row.get('entity_descriptions')[_index],
+                    })
+            if row.get('hashtag_ids') != None:
+                for _index, id in enumerate(row.get('hashtag_ids')):
+                    doc['hashtags'].append({
+                        "id": id,
+                        "tag": row.get('hashtag_tags')[_index],
+                    })
+            if row.get('link_ids') != None:
+                for _index, id in enumerate(row.get('link_ids')):
+                    doc['links'].append({
+                        "id": id,
+                        "url": row.get('link_titles')[_index],
+                        "title": row.get('link_urls')[_index],
+                        "description": row.get('link_descriptions')[_index],
+                    })
+            doc['meta'] = {
+                "id": row.get('id'),
+                "content": row.get('content'),
+                "possibly_sensitive": row.get('possibly_sensitive'),
+                "language": row.get('language'),
+                "source": row.get('source'),
+                "retweet_count": row.get('retweet_count'),
+                "reply_count": row.get('reply_count'),
+                "like_count": row.get('like_count'),
+                "quote_count": row.get('quote_count'),
+                "created_at": row.get('created_at'),
+            }            
+            docs.append(doc)
+
+        deque(helpers.parallel_bulk(es, docs, request_timeout=60))
+
+    return None
 
 if __name__ == '__main__':
-    es = Elasticsearch()
 
-    try:
-        conn = psycopg2.connect(host='localhost',
-                                user='postgres',
-                                password='postgres',
-                                dbname='tweets_db')
-    except:
-        print("Unable to connect to the database")
+    t_start = datetime.now()
+    
+    with ProcessPoolExecutor(max_workers=PARALEL) as executor:
+        futures = set()
+        for row in list(range(0, PARALEL)):
+            futures.add(executor.submit(paralel_read, row, 500))
+            # futures.add(executor.submit(paralel_read, row))
+        results = [_future.result() for _future in futures]
 
-    with conn.cursor(name='cur') as cursor:
-        query = 'SELECT * FROM tweets_all;'
-        cursor.execute(query)
-        i = 0
-        lst = []
-        for row in cursor:
-            i = i + 1
-            row_json = {}
-            row_json['_index'] = 'tweets_idx'
-            row_json['_id'] = str(row[0])
-            row_json['content'] = row[1]
-            row_json['retweet_count'] = row[3]
-            row_json['favorite_count'] = row[4]
-            row_json['happened_at'] = datetime.strftime(row[5].replace(tzinfo=None), '%Y-%m-%d %H:%M:%S')
+    elapsed_time = round((datetime.now() - t_start).total_seconds(), 2)
 
-            # author
-            row_json['author'] = {'id': str(row[6]), 'screen_name': row[7], 'name': row[8]}
-            if row[9] and row[9] != "":
-                row_json['author']['description'] = str(row[9])
-            if row[10]:
-                row_json['author']['followers_count'] = row[10]
-            if row[11]:
-                row_json['author']['friends_count'] = row[11]
-            if row[12]:
-                row_json['author']['statuses_count'] = row[12]
-
-            # country
-            if row[13]:
-                row_json['country'] = {'id': str(row[13]), 'code': row[14], 'name': row[15]}
-
-            # parent
-            if row[16]:
-                row_json['tweet_parent'] = {'id': str(row[16]), 'content': row[17]}
-
-            if row[29]:
-                row_json['neg'] = row[29]
-            if row[30]:
-                row_json['neu'] = row[30]
-            if row[31]:
-                row_json['pos'] = row[31]
-            if row[32]:
-                row_json['compound'] = row[32]
-
-            # hashtags
-            if row[33][0] is not None:
-                row_json['hashtags'] = []
-                for hashtag in row[33]:
-                    row_json['hashtags'].append(hashtag)
-
-            # mentions
-            if row[34][0] is not None:
-                row_json['mentions'] = []
-                for mention in row[34]:
-                    row_json['mentions'].append({'name': mention})
-
-            # theories
-            if row[35][0] is not None:
-                row_json['theories'] = []
-                for theory in row[35]:
-                    row_json['theories'].append(theory)
-
-            lst.append(row_json)
-            if i % 10000 == 0:
-                print(i)
-                helpers.bulk(es, lst)
-                lst = []
-
-        if len(lst) > 0:
-            helpers.bulk(es, lst)
+    print(f"Completed records in {elapsed_time}")
