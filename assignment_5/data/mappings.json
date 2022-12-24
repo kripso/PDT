@@ -130,7 +130,6 @@
                     "listed_count": {
                         "type": "integer"
                     }
-                    
                 }
             },
             "annotations": {
@@ -185,8 +184,7 @@
                         "type": "long"
                     },
                     "tag": {
-                        "type": "keyword",
-                        "analyzer": "just_lowercase"
+                        "type": "keyword"
                     }
                 }
             },
@@ -212,7 +210,9 @@
                     "id": {
                         "type": "long"
                     },
-                    "type": {"type": "keyword"},
+                    "type": {
+                        "type": "keyword"
+                    },
                     "content": {
                         "type": "text",
                         "analyzer": "englando"
@@ -245,45 +245,30 @@
             },
             "referenced": {
                 "properties": {
-                    "tweet_id": {
+                    "parent_id": {
                         "type": "long"
                     },
-                    "tweet_content": {
+                    "referenced_content": {
                         "type": "text",
                         "analyzer": "englando"
                     },
-                    "author_id": {
+                    "referenced_author_id": {
                         "type": "long"
                     },
-                    "author_name": {
-                        "type": "keyword",
-                        "fields": {
-                            "name_shingle": {
-                                "type": "text",
-                                "analyzer": "custom_shingles"
-                            },
-                            "name_ngram": {
-                                "type": "text",
-                                "analyzer": "custom_ngram"
-                            }
-                        }
+                    "referenced_author_name": {
+                        "type": "keyword"
                     },
-                    "author_username": {
-                        "type": "keyword",
-                        "fields": {
-                            "username_ngram": {
-                                "type": "text",
-                                "analyzer": "custom_ngram"
-                            }
-                        }
+                    "referenced_author_username": {
+                        "type": "keyword"
                     },
-                    "hashtags": {
+                    "referenced_hashtags": {
                         "type": "nested",
                         "properties": {
-                            "id": {"type": "long"},
+                            "id": {
+                                "type": "long"
+                            },
                             "tag": {
-                                "type": "keyword",
-                                "analyzer": "just_lowercase"
+                                "type": "keyword"
                             }
                         }
                     }

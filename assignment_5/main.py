@@ -7,19 +7,14 @@ import psycopg2.extras
 import psycopg2
 import os
 
-PARALEL = 10
+TABLE_NAME = 'tweet_docs_with_pid'
 
-# def create_postgres_connection():
-#     connection = psycopg2.connect(
-#         dbname="PDT",
-#         user="postgres",
-#         password="291122",
-#         host="localhost",
-#         port="5432",
-#     )
-#     # connection.autocommit = True
-#     return connection
-
+# LIMIT = 500
+# PARALEL = 10
+# INDEX_NAME = 'pdt_cluster'
+LIMIT = None
+PARALEL = 24
+INDEX_NAME = 'pdt_single'
 
 def create_postgres_connection():
     connection = psycopg2.connect(
@@ -33,13 +28,13 @@ def create_postgres_connection():
     return connection
 
 
-def paralel_read(paralel_id, limit=None):
+def paralel_read(paralel_id):
     es = Elasticsearch("http://localhost:9200")
     conn = create_postgres_connection()
     with conn.cursor(name="named", cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
         cursor.itersize = 4_000
         cursor.execute(
-            f'select * from tweets_with_pid where MOD(tweets_with_pid.ntile, {PARALEL})={paralel_id} {f"limit {limit}" if limit != None else ""} '
+            f'select * from {TABLE_NAME} where MOD("ntile", {PARALEL})={paralel_id} {f"limit {LIMIT}" if LIMIT != None else ""} '
         )
 
         docs = []
@@ -50,7 +45,7 @@ def paralel_read(paralel_id, limit=None):
                 deque(helpers.parallel_bulk(es, docs, request_timeout=120))
                 docs = []
             doc = {
-                "_index": "test",
+                "_index": INDEX_NAME,
                 "_id": row.get("id"),
                 "author": {},
                 "annotations": [],
@@ -119,6 +114,7 @@ def paralel_read(paralel_id, limit=None):
                     )
             doc["meta"] = {
                 "id": row.get("id"),
+                "type": row.get("type"),
                 "content": row.get("content"),
                 "possibly_sensitive": row.get("possibly_sensitive"),
                 "language": row.get("language"),
@@ -129,7 +125,22 @@ def paralel_read(paralel_id, limit=None):
                 "quote_count": row.get("quote_count"),
                 "created_at": row.get("created_at"),
             }
-            doc["referenced"]
+            doc["referenced"] = {
+                "parent_id": row.get("parent_id"),
+                "referenced_content": row.get("referenced_content"),
+                "referenced_author_id": row.get("referenced_author_id"),
+                "referenced_author_name": row.get("referenced_author_name"),
+                "referenced_author_username": row.get("referenced_author_username"),
+                "referenced_hashtags": [],
+            }
+            if row.get("referenced_hashtag_ids") != None:
+                for _index, _id in enumerate(row.get("referenced_hashtag_ids")):
+                    doc["referenced"]['referenced_hashtags'].append(
+                        {
+                            "id": _id,
+                            "tag": row.get("referenced_hashtag_tags")[_index],
+                        }
+                    )
             docs.append(doc)
 
         deque(helpers.parallel_bulk(es, docs, request_timeout=60))
@@ -144,8 +155,7 @@ if __name__ == "__main__":
     with ProcessPoolExecutor(max_workers=PARALEL) as executor:
         futures = set()
         for row in list(range(0, PARALEL)):
-            futures.add(executor.submit(paralel_read, row, 500))
-            # futures.add(executor.submit(paralel_read, row))
+            futures.add(executor.submit(paralel_read, row))
         results = [_future.result() for _future in futures]
 
     elapsed_time = round((datetime.now() - t_start).total_seconds(), 2)
