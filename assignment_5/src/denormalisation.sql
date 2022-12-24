@@ -1,17 +1,3 @@
-CREATE INDEX idx_id ON tweets (id);
-
-CREATE INDEX idx_authors_id ON authors (id);
-
-CREATE INDEX idx_parent_id ON tweet_references (parent_id);
-
-CREATE INDEX idx_tweet_references_tweet_id ON tweet_references (tweet_id);
-
-CREATE INDEX idx_annotations_tweet_id ON annotations (tweet_id);
-
-CREATE INDEX idx_links_tweet_id ON links (tweet_id);
-
-CREATE INDEX idx_hashtags_tweet_id ON tweet_hashtags (tweet_id);
-
 create table
 	tweets_merged as (
 		Select
@@ -93,7 +79,6 @@ create table
 	);
 
 CREATE INDEX idx_tweets_merged_id ON tweets_merged (id);
-
 CREATE INDEX idx_tweet_parent_id ON tweets_merged (parent_id);
 
 create table
@@ -131,18 +116,7 @@ create table
 	);
 
 CREATE INDEX idx_tweet_docs_with_pid_id ON tweet_docs_with_pid (id);
-
 CREATE INDEX idx_tweet_docs_with_pid_ntile ON tweet_docs_with_pid (ntile);
 
 DROP TABLE "tweet_docs";
-
 DROP TABLE "tweets_merged";
-
-select
-	*
-from
-	tweet_docs_with_pid
-where
-	not parent_id ISNULL
-lIMIT
-	10000;

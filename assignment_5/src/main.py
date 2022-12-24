@@ -12,6 +12,7 @@ TABLE_NAME = 'tweet_docs_with_pid'
 # LIMIT = 500
 # PARALEL = 10
 # INDEX_NAME = 'pdt_cluster'
+
 LIMIT = None
 PARALEL = 24
 INDEX_NAME = 'pdt_single'
@@ -38,7 +39,7 @@ def paralel_read(paralel_id):
         )
 
         docs = []
-        for index, row in enumerate(cursor, 1):
+        for index, row in enumerate(cursor):
             if index % 100_000 == 0:
                 print(index, flush=True)
             if index % 2000 == 0:
